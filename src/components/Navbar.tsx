@@ -1,7 +1,6 @@
 import Link from "next/link";
 import { useRouter } from "next/router";
 import { type User } from "next-auth";
-import Image from "next/image";
 import { Avatar } from "./ui/Avabar";
 
 interface INavbarProps {

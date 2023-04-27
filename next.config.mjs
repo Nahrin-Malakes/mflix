@@ -19,7 +19,10 @@ const config = {
     defaultLocale: "en",
   },
   images: {
-    domains: ["lh3.googleusercontent.com"],
+    domains: [
+      "lh3.googleusercontent.com",
+      "prod-ripcut-delivery.disney-plus.net",
+    ],
   },
 };
 export default config;
