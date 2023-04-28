@@ -40,9 +40,9 @@ const TVShow: NextPage = () => {
         <div className="p-6">
           <div className="flex gap-32">
             <div className="flex gap-4">
-              <h1 className="text-3xl">
+              {/* <h1 className="text-3xl">
                 {router.query.title} - {data?.seasons} Seasons
-              </h1>
+              </h1> */}
               {data && data.seasons && (
                 <SeasonSelect setSeason={setSeason} seasons={data.seasons} />
               )}

@@ -1,5 +1,5 @@
 import { Check } from "lucide-react";
-import { useState } from "react";
+import { type ChangeEvent, useState } from "react";
 import { Button } from "~/components/ui/button";
 import {
   Dialog,
@@ -20,6 +20,7 @@ import {
   CommandList,
 } from "~/components/ui/command";
 import { cn } from "~/lib/utils";
+import { MultipartDropzone } from "./MultipartDropzone";
 
 export function UploadEpisodeDialog() {
   const [isDialogOpen, setisDialogOpen] = useState(false);
@@ -37,8 +38,6 @@ export function UploadEpisodeDialog() {
       enabled: isDialogOpen && selectedShow.length > 1,
     }
   );
-
-  console.log(selectedSeason);
 
   return (
     <Dialog onOpenChange={(status) => setisDialogOpen(status)}>
@@ -114,7 +113,9 @@ export function UploadEpisodeDialog() {
             </Command>
           </div>
         )}
-        <div className="grid gap-4 py-4"></div>
+        <div className="grid gap-4 py-4">
+          <MultipartDropzone />
+        </div>
         <DialogFooter>
           <Button type="submit">Upload</Button>
         </DialogFooter>

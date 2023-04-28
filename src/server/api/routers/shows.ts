@@ -2,6 +2,9 @@ import { z } from "zod";
 
 import { createTRPCRouter, publicProcedure } from "../trpc";
 import { env } from "~/env.mjs";
+import { UploadPartCommand } from "@aws-sdk/client-s3";
+import { TRPCError } from "@trpc/server";
+import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 
 export const showsRouter = createTRPCRouter({
   addTVShow: publicProcedure
@@ -148,5 +151,76 @@ export const showsRouter = createTRPCRouter({
       });
 
       return season;
+    }),
+  getMultipartUploadPresignedUrl: publicProcedure
+    .input(z.object({ key: z.string(), filePartTotal: z.number() }))
+    .mutation(async ({ ctx, input }) => {
+      const { key, filePartTotal } = input;
+      const { s3 } = ctx;
+
+      const uploadId = (
+        await s3.createMultipartUpload({
+          Bucket: env.BUCKET_NAME,
+          Key: key,
+        })
+      ).UploadId;
+
+      if (!uploadId) {
+        throw new TRPCError({
+          code: "INTERNAL_SERVER_ERROR",
+          message: "Could not create multipart upload",
+        });
+      }
+
+      const urls: Promise<{ url: string; partNumber: number }>[] = [];
+
+      for (let i = 1; i <= filePartTotal; i++) {
+        const uploadPartCommand = new UploadPartCommand({
+          Bucket: env.BUCKET_NAME,
+          Key: key,
+          UploadId: uploadId,
+          PartNumber: i,
+        });
+
+        const url = getSignedUrl(s3, uploadPartCommand).then((url) => ({
+          url,
+          partNumber: i,
+        }));
+
+        urls.push(url);
+      }
+
+      return {
+        uploadId,
+        urls: await Promise.all(urls),
+      };
+    }),
+  completeMultipartUpload: publicProcedure
+    .input(
+      z.object({
+        key: z.string(),
+        uploadId: z.string(),
+        parts: z.array(
+          z.object({
+            ETag: z.string(),
+            PartNumber: z.number(),
+          })
+        ),
+      })
+    )
+    .mutation(async ({ ctx, input }) => {
+      const { key, uploadId, parts } = input;
+      const { s3 } = ctx;
+
+      const completeMultipartUploadOutput = await s3.completeMultipartUpload({
+        Bucket: env.BUCKET_NAME,
+        Key: key,
+        UploadId: uploadId,
+        MultipartUpload: {
+          Parts: parts,
+        },
+      });
+
+      return completeMultipartUploadOutput;
     }),
 });
