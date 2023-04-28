@@ -1,7 +1,8 @@
 import Link from "next/link";
 import { useRouter } from "next/router";
 import { type User } from "next-auth";
-import { Avatar } from "./ui/Avabar";
+
+import { Avatar, AvatarFallback, AvatarImage } from "~/components/ui/avatar";
 
 interface INavbarProps {
   user: User;
@@ -25,13 +26,11 @@ export const Navbar = ({ user }: INavbarProps) => {
               Home
             </Link>
           </div>
-          <div className="">
-            <Avatar
-              src={user.image as string}
-              height={45}
-              width={45}
-              alt={user.name as string}
-            />
+          <div>
+            <Avatar>
+              <AvatarImage src={user.image as string} />
+              <AvatarFallback>CN</AvatarFallback>
+            </Avatar>
           </div>
         </div>
       </div>

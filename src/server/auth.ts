@@ -20,7 +20,7 @@ declare module "next-auth" {
     user: {
       id: string;
       // ...other properties
-      // role: UserRole;
+      role: "ADMIN" | "USER";
     } & DefaultSession["user"];
   }
 
@@ -37,13 +37,28 @@ declare module "next-auth" {
  */
 export const authOptions: NextAuthOptions = {
   callbacks: {
-    session: ({ session, user }) => ({
-      ...session,
-      user: {
-        ...session.user,
-        id: user.id,
-      },
-    }),
+    // session: ({ session, user }) => ({
+    //   ...session,
+    //   user: {
+    //     ...session.user,
+    //     id: user.id,
+    //   },
+    // }),
+    session: async ({ session, user }) => {
+      const userRole = await prisma.user.findUnique({
+        where: { id: user.id },
+        select: { role: true },
+      });
+
+      return {
+        ...session,
+        user: {
+          ...session.user,
+          id: user.id,
+          role: (userRole?.role as string) || "USER",
+        },
+      };
+    },
     redirect(params) {
       return params.baseUrl + "/browse";
     },

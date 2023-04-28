@@ -3,8 +3,8 @@ import { type Session } from "next-auth";
 import { SessionProvider } from "next-auth/react";
 
 import { api } from "~/utils/api";
-
 import "~/styles/globals.css";
+import { ThemeProvider } from "~/components/ui/theme-provider";
 
 const MyApp: AppType<{ session: Session | null }> = ({
   Component,
@@ -12,7 +12,9 @@ const MyApp: AppType<{ session: Session | null }> = ({
 }) => {
   return (
     <SessionProvider session={session}>
-      <Component {...pageProps} />
+      <ThemeProvider attribute="class" defaultTheme="dark">
+        <Component {...pageProps} />
+      </ThemeProvider>
     </SessionProvider>
   );
 };

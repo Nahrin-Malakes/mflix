@@ -1,108 +1,14 @@
 import { z } from "zod";
-import { PutObjectCommand, UploadPartCommand } from "@aws-sdk/client-s3";
-import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
-import { TRPCError } from "@trpc/server";
 
 import { createTRPCRouter, publicProcedure } from "../trpc";
 import { env } from "~/env.mjs";
 
 export const showsRouter = createTRPCRouter({
-  getObjects: publicProcedure.query(async ({ ctx }) => {
-    const { s3 } = ctx;
-
-    const listObjectsOutput = await s3.listObjectsV2({
-      Bucket: env.BUCKET_NAME,
-    });
-
-    return listObjectsOutput.Contents ?? [];
-  }),
-  getStandardUploadPresignedUrl: publicProcedure
-    .input(z.object({ key: z.string() }))
-    .mutation(async ({ ctx, input }) => {
-      const { key } = input;
-      const { s3 } = ctx;
-
-      const putObjectCommand = new PutObjectCommand({
-        Bucket: env.BUCKET_NAME,
-        Key: key,
-      });
-
-      return await getSignedUrl(s3, putObjectCommand);
-    }),
-  getMultipartUploadPresignedUrl: publicProcedure
-    .input(z.object({ key: z.string(), filePartTotal: z.number() }))
-    .mutation(async ({ ctx, input }) => {
-      const { key, filePartTotal } = input;
-      const { s3 } = ctx;
-
-      const uploadId = (
-        await s3.createMultipartUpload({
-          Bucket: env.BUCKET_NAME,
-          Key: key,
-        })
-      ).UploadId;
-
-      if (!uploadId) {
-        throw new TRPCError({
-          code: "INTERNAL_SERVER_ERROR",
-          message: "Could not create multipart upload",
-        });
-      }
-
-      const urls: Promise<{ url: string; partNumber: number }>[] = [];
-
-      for (let i = 1; i <= filePartTotal; i++) {
-        const uploadPartCommand = new UploadPartCommand({
-          Bucket: env.BUCKET_NAME,
-          Key: key,
-          UploadId: uploadId,
-          PartNumber: i,
-        });
-
-        const url = getSignedUrl(s3, uploadPartCommand).then((url) => ({
-          url,
-          partNumber: i,
-        }));
-
-        urls.push(url);
-      }
-
-      return {
-        uploadId,
-        urls: await Promise.all(urls),
-      };
-    }),
-  completeMultipartUpload: publicProcedure
-    .input(
-      z.object({
-        key: z.string(),
-        uploadId: z.string(),
-        parts: z.array(
-          z.object({
-            ETag: z.string(),
-            PartNumber: z.number(),
-          })
-        ),
-      })
-    )
-    .mutation(async ({ ctx, input }) => {
-      const { key, uploadId, parts } = input;
-      const { s3 } = ctx;
-
-      const completeMultipartUploadOutput = await s3.completeMultipartUpload({
-        Bucket: env.BUCKET_NAME,
-        Key: key,
-        UploadId: uploadId,
-        MultipartUpload: {
-          Parts: parts,
-        },
-      });
-      return completeMultipartUploadOutput;
-    }),
-  createTVSshow: publicProcedure
+  addTVShow: publicProcedure
     .input(
       z.object({
         title: z.string(),
+        imageUrl: z.string(),
       })
     )
     .mutation(async ({ ctx, input }) => {
@@ -116,6 +22,7 @@ export const showsRouter = createTRPCRouter({
       const prismaObject = await prisma.show.create({
         data: {
           title: input.title,
+          imageUrl: input.imageUrl,
         },
       });
 
@@ -127,7 +34,11 @@ export const showsRouter = createTRPCRouter({
   listTVShows: publicProcedure.query(async ({ ctx }) => {
     const { prisma } = ctx;
 
-    const shows = await prisma.show.findMany();
+    const shows = await prisma.show.findMany({
+      include: {
+        seasons: true,
+      },
+    });
 
     return shows;
   }),
@@ -141,7 +52,9 @@ export const showsRouter = createTRPCRouter({
       const { prisma } = ctx;
       const show = await prisma.show.findFirst({
         where: {
-          title: input.title,
+          title: {
+            contains: input.title,
+          },
         },
         include: {
           seasons: {
@@ -153,7 +66,7 @@ export const showsRouter = createTRPCRouter({
       });
       if (!show) return null;
 
-      const seasons = await prisma.season.count({
+      const seasons = await prisma.season.findMany({
         where: {
           showId: show.id,
         },
@@ -206,5 +119,34 @@ export const showsRouter = createTRPCRouter({
       if (!episode) return null;
 
       return episode;
+    }),
+  addSeason: publicProcedure
+    .input(
+      z.object({
+        showId: z.string(),
+      })
+    )
+    .mutation(async ({ ctx, input }) => {
+      const show = await ctx.prisma.show.findUnique({
+        where: {
+          id: input.showId,
+        },
+      });
+      if (!show) return {};
+
+      const season = await ctx.prisma.season.create({
+        data: {
+          showId: show.id,
+        },
+      });
+
+      const seasonCount = await ctx.prisma.season.count();
+
+      await ctx.s3.putObject({
+        Bucket: env.BUCKET_NAME,
+        Key: `tv-shows/${show.title}/se-${seasonCount}/`,
+      });
+
+      return season;
     }),
 });

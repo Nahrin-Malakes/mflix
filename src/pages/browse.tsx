@@ -1,5 +1,6 @@
 import { type NextPage } from "next";
 import { useSession } from "next-auth/react";
+import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/router";
 
@@ -20,8 +21,8 @@ const Browse: NextPage = () => {
 
   return (
     <>
-      <div className="h-screen bg-zinc-900">
-        <main className="dark h-full  text-zinc-50">
+      <div className="h-screen ">
+        <main className="h-full">
           <Navbar user={session.data.user} />
           <div className="p-6">
             <div className="flex gap-32">
@@ -31,8 +32,16 @@ const Browse: NextPage = () => {
                   {isLoading && <p>Loading...</p>}
                   {data &&
                     data.map((show) => (
-                      <div key={show.id}>
-                        <Link href={`/shows/${show.title}`}>{show.title}</Link>
+                      <div className="flex gap-4" key={show.id}>
+                        <Link href={`/shows/${show.title}`}>
+                          <Image
+                            className="rounded-md"
+                            width={300}
+                            height={150}
+                            alt={show.title}
+                            src={show.imageUrl}
+                          />
+                        </Link>
                       </div>
                     ))}
                 </div>
