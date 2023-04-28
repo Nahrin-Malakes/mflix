@@ -2,6 +2,7 @@ import { useCallback, useMemo, useState } from "react";
 import { api } from "../utils/api";
 import { useDropzone } from "react-dropzone";
 import axios from "axios";
+import { Button } from "./ui/button";
 
 // determines the ideal file part size for multipart upload based on file's total size
 const calculateChunkSize = (fileSize: number) => {
@@ -40,7 +41,17 @@ const splitFileIntoParts = (file: File) => {
   return partsAsObj;
 };
 
-export const MultipartDropzone = () => {
+interface IEpisodeDropzoneProps {
+  show: string;
+  seasonId: string;
+  season: string;
+}
+
+export const EpisodeDropzone = ({
+  show,
+  seasonId,
+  season,
+}: IEpisodeDropzoneProps) => {
   // presigned URLs for uploading each file part
   const [partPresignedUrls, setPartPresignedUrls] = useState<
     { url: string; partNumber: number }[]
@@ -55,7 +66,9 @@ export const MultipartDropzone = () => {
     api.shows.getMultipartUploadPresignedUrl.useMutation();
   const { mutateAsync: completeUpload } =
     api.shows.completeMultipartUpload.useMutation();
-  const apiUtils = api.useContext();
+  const fetchedShow = api.shows.getShow.useQuery({
+    title: show,
+  });
 
   const { getRootProps, getInputProps, isDragActive, acceptedFiles } =
     useDropzone({
@@ -63,14 +76,16 @@ export const MultipartDropzone = () => {
       maxSize: 5 * 2 ** 40, // roughly 5TB
       minSize: 1 * 2 ** 20, // 1MB -> S3 limitation
       multiple: false,
-      onDropAccepted: (files, event) => {
+      onDropAccepted: (files) => {
         const file = files[0] as File;
 
         const parts = splitFileIntoParts(file);
         setFileParts(parts);
 
+        if (!fetchedShow.data?.seasons) return;
+
         fetchPresignedUrls({
-          key: file.name,
+          key: `tv-shows/${show}/se-${season}/${file.name}`,
           filePartTotal: Object.keys(parts).length,
         })
           .then((response) => {
@@ -104,7 +119,8 @@ export const MultipartDropzone = () => {
       ETag: string;
     }>[] = [];
     if (acceptedFiles.length > 0) {
-      const key = (acceptedFiles[0] as File).name;
+      const ep = (acceptedFiles[0] as File).name;
+      const key = `tv-shows/${show}/se-${season}/${ep}`;
       for (const { url, partNumber } of partPresignedUrls) {
         const file = fileParts[partNumber] as File;
         uploadPromises.push(
@@ -127,16 +143,23 @@ export const MultipartDropzone = () => {
 
       const awaitedUploads = await Promise.all(uploadPromises);
 
-      await completeUpload({ parts: awaitedUploads, key, uploadId });
+      await completeUpload({ parts: awaitedUploads, key, uploadId, seasonId });
       console.log("Successfully uploaded ", key);
       setSubmitDisabled(true);
     }
-  }, [acceptedFiles, completeUpload, fileParts, partPresignedUrls, uploadId]);
+  }, [
+    acceptedFiles,
+    completeUpload,
+    fileParts,
+    partPresignedUrls,
+    uploadId,
+    season,
+    seasonId,
+    show,
+  ]);
 
   return (
     <section>
-      <h2 className="text-lg font-semibold">Multipart Upload Dropzone</h2>
-      <p className="mb-3">Example dropzone that performs a multipart upload</p>
       <div {...getRootProps()} className="dropzone-container">
         <input {...getInputProps()} />
         {isDragActive ? (
@@ -153,13 +176,13 @@ export const MultipartDropzone = () => {
         <h4 className="font-semibold text-zinc-400">Files pending upload</h4>
         <ul>{files}</ul>
       </aside>
-      <button
+      <Button
         onClick={() => void handleSubmit()}
         disabled={submitDisabled}
         className="submit-button"
       >
         Upload
-      </button>
+      </Button>
     </section>
   );
 };

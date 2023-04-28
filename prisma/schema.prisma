@@ -39,6 +39,7 @@ model Season {
   show     Show?     @relation(fields: [showId], references: [id])
   showId   String?
   episodes Episode[]
+  season String
 
   @@index([showId])
 }

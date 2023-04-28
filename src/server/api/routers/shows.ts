@@ -127,6 +127,7 @@ export const showsRouter = createTRPCRouter({
     .input(
       z.object({
         showId: z.string(),
+        season: z.string(),
       })
     )
     .mutation(async ({ ctx, input }) => {
@@ -140,6 +141,7 @@ export const showsRouter = createTRPCRouter({
       const season = await ctx.prisma.season.create({
         data: {
           showId: show.id,
+          season: input.season,
         },
       });
 
@@ -198,6 +200,7 @@ export const showsRouter = createTRPCRouter({
   completeMultipartUpload: publicProcedure
     .input(
       z.object({
+        seasonId: z.string(),
         key: z.string(),
         uploadId: z.string(),
         parts: z.array(
@@ -209,8 +212,8 @@ export const showsRouter = createTRPCRouter({
       })
     )
     .mutation(async ({ ctx, input }) => {
-      const { key, uploadId, parts } = input;
-      const { s3 } = ctx;
+      const { key, uploadId, parts, seasonId } = input;
+      const { s3, prisma } = ctx;
 
       const completeMultipartUploadOutput = await s3.completeMultipartUpload({
         Bucket: env.BUCKET_NAME,
@@ -218,6 +221,13 @@ export const showsRouter = createTRPCRouter({
         UploadId: uploadId,
         MultipartUpload: {
           Parts: parts,
+        },
+      });
+
+      await prisma.episode.create({
+        data: {
+          s3Key: key,
+          seasonId: seasonId,
         },
       });
 

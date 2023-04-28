@@ -1,4 +1,4 @@
-import { Check, CheckIcon, Loader2Icon } from "lucide-react";
+import { Check, Loader2Icon } from "lucide-react";
 import { useState } from "react";
 import { Button } from "~/components/ui/button";
 import {
@@ -25,10 +25,12 @@ import { cn } from "~/lib/utils";
 
 export function AddSeasonDialog() {
   const [isDialogOpen, setisDialogOpen] = useState(false);
+  const [selectedShow, setSelectedShow] = useState("");
+  const [season, setSeason] = useState("");
+
   const tvShows = api.shows.listTVShows.useQuery(undefined, {
     enabled: isDialogOpen,
   });
-  const [selectedShow, setSelectedShow] = useState("");
   const addSeason = api.shows.addSeason.useMutation();
 
   const handleSubmit = () => {
@@ -36,6 +38,7 @@ export function AddSeasonDialog() {
       if (show.title.toLocaleLowerCase() === selectedShow) {
         addSeason.mutate({
           showId: show.id,
+          season,
         });
       }
     });
@@ -81,6 +84,19 @@ export function AddSeasonDialog() {
               </CommandGroup>
             </CommandList>
           </Command>
+        </div>
+        <div className="grid gap-4 py-4">
+          <div className="grid grid-cols-4  items-center gap-4">
+            <Label htmlFor="season" className="text-right">
+              Season
+            </Label>
+            <Input
+              id="season"
+              value={season}
+              onChange={(e) => setSeason(e.target.value)}
+              className="col-span-3"
+            />
+          </div>
         </div>
         <DialogFooter>
           <Button type="submit" onClick={handleSubmit}>

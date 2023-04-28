@@ -1,11 +1,10 @@
 import { Check } from "lucide-react";
-import { type ChangeEvent, useState } from "react";
+import { useState } from "react";
 import { Button } from "~/components/ui/button";
 import {
   Dialog,
   DialogContent,
   DialogDescription,
-  DialogFooter,
   DialogHeader,
   DialogTitle,
   DialogTrigger,
@@ -20,12 +19,13 @@ import {
   CommandList,
 } from "~/components/ui/command";
 import { cn } from "~/lib/utils";
-import { MultipartDropzone } from "./MultipartDropzone";
+import { EpisodeDropzone } from "./MultipartDropzone";
 
 export function UploadEpisodeDialog() {
   const [isDialogOpen, setisDialogOpen] = useState(false);
   const [selectedShow, setSelectedShow] = useState("");
-  const [selectedSeason, setSelectedSeason] = useState("");
+  const [selectedSeason, setSelectedSeason] = useState<string | null>(null);
+  const [seasonId, setSeasonId] = useState("");
 
   const tvShows = api.shows.listTVShows.useQuery(undefined, {
     enabled: isDialogOpen,
@@ -35,7 +35,7 @@ export function UploadEpisodeDialog() {
       title: selectedShow,
     },
     {
-      enabled: isDialogOpen && selectedShow.length > 1,
+      enabled: isDialogOpen && selectedShow.length > 0,
     }
   );
 
@@ -88,9 +88,10 @@ export function UploadEpisodeDialog() {
                 <CommandEmpty>No results found.</CommandEmpty>
                 <CommandGroup heading="Seasons">
                   {show.data &&
-                    show.data.seasons.map((season, index) => (
+                    show.data.seasons.map((season) => (
                       <CommandItem
                         onSelect={(currentValue) => {
+                          setSeasonId(season.id);
                           setSelectedSeason(
                             currentValue === selectedSeason ? "" : currentValue
                           );
@@ -100,12 +101,12 @@ export function UploadEpisodeDialog() {
                         <Check
                           className={cn(
                             "mr-2 h-4 w-4",
-                            selectedSeason === (index++).toString()
+                            selectedSeason === season.season
                               ? "opacity-100"
                               : "opacity-0"
                           )}
                         />
-                        {index}
+                        {season.season}
                       </CommandItem>
                     ))}
                 </CommandGroup>
@@ -114,11 +115,14 @@ export function UploadEpisodeDialog() {
           </div>
         )}
         <div className="grid gap-4 py-4">
-          <MultipartDropzone />
+          {show && show.data && selectedSeason && (
+            <EpisodeDropzone
+              show={show.data.show.title}
+              seasonId={seasonId}
+              season={selectedSeason}
+            />
+          )}
         </div>
-        <DialogFooter>
-          <Button type="submit">Upload</Button>
-        </DialogFooter>
       </DialogContent>
     </Dialog>
   );
